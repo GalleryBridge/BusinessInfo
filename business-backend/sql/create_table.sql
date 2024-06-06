@@ -22,3 +22,17 @@ create table if not exists user
     index idx_userAccount (userAccount)
 ) comment '用户' collate = utf8mb4_unicode_ci;
 
+-- 图表信息表
+create table if not exists chart
+(
+    id           bigint auto_increment comment 'id' primary key,
+    goal        text                           null comment '分析目标',
+    chartData   text                           null comment '表图数据',
+    chartType   varchar(128)                           null comment '表图类型',
+    genChart    text                           null comment '生成的表图数据',
+    genResult   text                           null comment '生成的表图结论',
+    userId      bigint                          null comment    '用户ID',
+    createTime   datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
+    updateTime   datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete     tinyint      default 0                 not null comment '是否删除'
+) comment '图表信息表' collate = utf8mb4_unicode_ci;

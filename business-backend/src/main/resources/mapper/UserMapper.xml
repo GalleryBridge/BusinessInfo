@@ -5,6 +5,8 @@
 <mapper namespace="com.project.springbootinit.mapper.UserMapper">
     <resultMap id="BaseResultMap" type="com.project.springbootinit.model.entity.User">
         <id property="id" column="id" jdbcType="BIGINT"/>
+        <result property="userAccount" column="userAccount" jdbcType="VARCHAR"/>
+        <result property="userPassword" column="userPassword" jdbcType="VARCHAR"/>
         <result property="userName" column="userName" jdbcType="VARCHAR"/>
         <result property="userAvatar" column="userAvatar" jdbcType="VARCHAR"/>
         <result property="userProfile" column="userProfile" jdbcType="VARCHAR"/>
@@ -15,7 +17,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,userName,userAvatar,userProfile,
-        userRole,createTime,updateTime,isDelete
+        id,userAccount,userPassword,userName,userAvatar,
+        userProfile,userRole,createTime,updateTime,isDelete
     </sql>
 </mapper>
