@@ -15,8 +15,12 @@ public class ChartUpdateRequest implements Serializable {
      /**
      * id
      */
-    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
+
+    /**
+     * 图表名称
+     */
+    private String chartName;
 
     /**
      * 分析目标
@@ -58,12 +62,6 @@ public class ChartUpdateRequest implements Serializable {
      */
     private Date updateTime;
 
-    /**
-     * 是否删除
-     */
-    @TableLogic
-    private Integer isDelete;
 
-    @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }

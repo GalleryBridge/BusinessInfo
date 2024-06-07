@@ -1,38 +1,31 @@
 package com.project.springbootinit.model.dto.chart;
 
-import com.project.springbootinit.common.PageRequest;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
 import java.io.Serializable;
 
 @Data
-public class ChartQueryRequest extends PageRequest implements Serializable {
-
-     /**
-     * id
-     */
-    private Long id;
+public class GenChartByAIRequest implements Serializable {
 
     /**
      * 图表名称
      */
     private String chartName;
-    
+
     /**
      * 分析目标
      */
     private String goal;
 
     /**
-     * 表图类型
+     * 图表类型
      */
     private String chartType;
 
     /**
-     * 用户ID
+     * 业务
      */
-    private Long userId;
+    private String biz;
 
     private static final long serialVersionUID = 1L;
 }

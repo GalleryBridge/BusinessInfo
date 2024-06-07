@@ -8,6 +8,10 @@ import java.io.Serializable;
 public class ChartAddRequest implements Serializable {
 
     /**
+     * 图表名称
+     */
+    private String chartName;
+    /**
      * 分析目标
      */
     private String goal;
