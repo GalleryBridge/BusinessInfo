@@ -1,19 +1,18 @@
-package com.project.springbootinit.model.entity;
+package com.project.springbootinit.model.dto.chart;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import lombok.Data;
 
 import java.io.Serializable;
 import java.util.Date;
 
-/**
- * 图表信息表
- * @TableName chart
- */
-@TableName(value ="chart")
 @Data
-public class Chart  implements Serializable {
-    /**
+public class ChartUpdateRequest implements Serializable {
+
+     /**
      * id
      */
     @TableId(type = IdType.ASSIGN_ID)
