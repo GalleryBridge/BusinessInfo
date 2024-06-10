@@ -1,6 +1,9 @@
 package com.project.springbootinit.controller;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 
+import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.project.springbootinit.annotation.AuthCheck;
@@ -32,6 +35,7 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
+import java.util.List;
 
 @RestController
 @RequestMapping("/chart")
@@ -184,7 +188,7 @@ public class ChartController {
      * @param request
      * @return
      */
-    @PostMapping("gen")
+    @PostMapping("/gen")
     public BaseResponse<BiResponse> genChartByAi(@RequestPart("file")MultipartFile multipartFile,
                                              GenChartByAIRequest genChartByAIRequest, HttpServletRequest request){
         String chartName = genChartByAIRequest.getChartName();
@@ -193,8 +197,19 @@ public class ChartController {
         //  校验
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
         ThrowUtils.throwIf(StringUtils.isNotBlank(chartName) && chartName.length() > 100, ErrorCode.PARAMS_ERROR, "名称过长");
-        User loginUser = userService.getLoginUser(request);
 
+        //  校验文件大小
+        long size = multipartFile.getSize();
+        String filename = multipartFile.getOriginalFilename();
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件过大, 限制1M");
+
+        //  校验文件后缀
+        String suffix = FileUtil.getSuffix(filename);
+        final List<String> validFileSuffixList = Arrays.asList("png", "jpg", "svg", "webp", "jpeg");
+        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
+
+        User loginUser = userService.getLoginUser(request);
         //  使用现有的AI模型
         long biModelId = 1651472468042432513L;
         StringBuilder userInput = new StringBuilder();
