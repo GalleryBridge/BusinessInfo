@@ -1,4 +1,5 @@
 package com.project.springbootinit.controller;
+import java.util.Date;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -11,14 +12,18 @@ import com.project.springbootinit.constant.CommonConstant;
 import com.project.springbootinit.constant.UserConstant;
 import com.project.springbootinit.exception.BusinessException;
 import com.project.springbootinit.exception.ThrowUtils;
+import com.project.springbootinit.manager.AiManager;
 import com.project.springbootinit.model.dto.chart.*;
 import com.project.springbootinit.model.entity.Chart;
 import com.project.springbootinit.model.entity.User;
+import com.project.springbootinit.model.vo.BiResponse;
 import com.project.springbootinit.service.ChartService;
 import com.project.springbootinit.service.UserService;
+import com.project.springbootinit.utils.ExcelUtils;
 import com.project.springbootinit.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.io.File;
 
 @RestController
 @RequestMapping("/chart")
@@ -37,6 +43,9 @@ public class ChartController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private AiManager aiManager;
 
     /**
      * 增加
@@ -169,14 +178,14 @@ public class ChartController {
     }
 
     /**
-     * 智能生成接口
+     * 智能生成
      * @param multipartFile
      * @param genChartByAIRequest
      * @param request
      * @return
      */
     @PostMapping("gen")
-    public BaseResponse<String> genChartByAi(@RequestPart("file")MultipartFile multipartFile,
+    public BaseResponse<BiResponse> genChartByAi(@RequestPart("file")MultipartFile multipartFile,
                                              GenChartByAIRequest genChartByAIRequest, HttpServletRequest request){
         String chartName = genChartByAIRequest.getChartName();
         String goal = genChartByAIRequest.getGoal();
@@ -184,9 +193,50 @@ public class ChartController {
         //  校验
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
         ThrowUtils.throwIf(StringUtils.isNotBlank(chartName) && chartName.length() > 100, ErrorCode.PARAMS_ERROR, "名称过长");
-        //  读取文件 进行处理
+        User loginUser = userService.getLoginUser(request);
 
-        return null;
+        //  使用现有的AI模型
+        long biModelId = 1651472468042432513L;
+        StringBuilder userInput = new StringBuilder();
+        //  给AI模型一个预设 构造用户输入
+        userInput.append("分析需求:").append("\n");
+
+        String userGoal = goal;
+        if (StringUtils.isNotBlank(userGoal))
+            userGoal = ".请使用" + chartType;
+        userInput.append(goal).append("\n");
+        userInput.append("原始数据:").append("\n");
+        String res = ExcelUtils.excelToCsv(multipartFile);
+        userInput.append(res).append("\n");
+        //  压缩后的数据
+        //  拼接用户输入 传入doChat
+        String result = aiManager.doChat(userInput.toString(), 1709156902984093697L);
+        String[] splits = result.split("【【【【【");
+        System.out.println(splits.length);
+        if (splits.length < 3){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "BI生成错误");
+        }
+        String genChart = splits[1].trim();
+        String genResult = splits[2].trim();
+
+        //  插入到数据库
+        Chart chart = new Chart();
+        chart.setChartName(chartName);
+        chart.setGoal(goal);
+        chart.setChartData(res);
+        chart.setChartType(chartType);
+        chart.setGenChart(genChart);
+        chart.setGenResult(genResult);
+        chart.setUserId(loginUser.getId());
+        boolean saveResult = chartService.save(chart);
+        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+
+        BiResponse biResponse = new BiResponse();
+        biResponse.setGenChart(genChart);
+        biResponse.setGenResult(genResult);
+        biResponse.setChartId(chart.getId());
+        //  读取文件 进行处理 压缩信息
+        return ResultUtils.success(biResponse);
     }
 
     /**

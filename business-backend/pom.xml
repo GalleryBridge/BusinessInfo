@@ -114,6 +114,14 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- AI 接口-->
+        <!-- https://mvnrepository.com/artifact/com.yucongming/yucongming-java-sdk -->
+        <dependency>
+            <groupId>com.yucongming</groupId>
+            <artifactId>yucongming-java-sdk</artifactId>
+            <version>0.0.3</version>
+        </dependency>
+
     </dependencies>
 
     <build>

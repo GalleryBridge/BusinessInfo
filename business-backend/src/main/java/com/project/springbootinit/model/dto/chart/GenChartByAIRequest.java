@@ -22,10 +22,10 @@ public class GenChartByAIRequest implements Serializable {
      */
     private String chartType;
 
-    /**
-     * 业务
-     */
-    private String biz;
+//    /**
+//     * 业务
+//     */
+//    private String biz;
 
     private static final long serialVersionUID = 1L;
 }
