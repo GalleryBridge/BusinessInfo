@@ -1,173 +1,124 @@
-# SpringBoot 项目初始模板
-[toc]
+## 智能BI报表(后端)
 
-## 模板特点
+### 项目介绍
 
-### 主流框架 & 特性
+为了生成可视化报表而建立的项目，主要让前端通过Echars展示数据，后端调用第三方AI接口对用户请求进行解析和生成前端代码格式实现智能生成。
 
-- Spring Boot 2.7.x
-- Spring MVC
-- MyBatis + MyBatis Plus 数据访问（开启分页）
-- Spring Boot 调试工具和项目处理器
-- Spring AOP 切面编程
-- Spring Scheduler 定时任务
-- Spring 事务注解
+### 技术选型
 
-### 数据存储
+Spring Boot 2.7
 
-- MySQL 数据库
-- Redis 内存数据库
-- Elasticsearch 搜索引擎
-- 腾讯云 COS 对象存储
+MySQL 
 
-### 工具类
+MongoDB（TODO/ 尝试一下分表 利用MongoDB将图表数据 写入到这里）
 
-- Easy Excel 表格处理
-- Hutool 工具库
-- Apache Commons Lang3 工具类
-- Lombok 注解
+MyBatis Plus
 
-### 业务特性
+RabbitMQ
 
-- 业务代码生成器（支持自动生成 Service、Controller、数据模型代码）
-- Spring Session Redis 分布式登录
-- 全局请求响应拦截器（记录日志）
-- 全局异常处理器
-- 自定义错误码
-- 封装通用响应类
-- Swagger + Knife4j 接口文档
-- 自定义权限注解 + 全局校验
-- 全局跨域处理
-- 长整数丢失精度解决
-- 多环境配置
+Easy Excel
+
+Swageer + Knife4j
+
+Hutool
 
 
-## 业务功能
 
-- 提供示例 SQL（用户、帖子、帖子点赞、帖子收藏表）
-- 用户登录、注册、注销、更新、检索、权限管理
-- 帖子创建、删除、编辑、更新、数据库检索、ES 灵活检索
-- 帖子点赞、取消点赞
-- 帖子收藏、取消收藏、检索已收藏帖子
-- 帖子全量同步 ES、增量同步 ES 定时任务
-- 支持微信开放平台登录
-- 支持微信公众号订阅、收发消息、设置菜单
-- 支持分业务的文件上传
+### 架构图
 
-### 单元测试
+![image-20240610231835824](README.assets/image-20240610231835824.png)
 
-- JUnit5 单元测试
-- 示例单元测试类
+### 流程一
 
-### 架构设计
+#### 初始化项目
 
-- 合理分层
+利用后端初始化模板(因为所有的系统都可能有用户登录注册功能 所以将这些功能写一个模板方便创建项目)
 
+#### 数据库设计
 
-## 快速上手
+创建Chart表(图表信息表) 并实现增删改查和分页
 
-> 所有需要修改的地方鱼皮都标记了 `todo`，便于大家找到修改的位置~
+#### 分析需求
 
-### MySQL 数据库
+1. 用户输入的数据(分析目标、原始数据[文件]、选择类型(可选)、校验、成本控制)
 
-1）修改 `application.yml` 的数据库配置为你自己的：
+#### 开发接口
 
-```yml
-spring:
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/my_db
-    username: root
-    password: 123456
-```
+1. 读取文件(利用Easy Excel)
+2. 编写ExcelUtile工具类
+3. 读取文件并分割出需要的数据 并过滤不需要的数据 最后拼接字符串 改造成可以输入的AI的数据
+4. 编写测试类测试
 
-2）执行 `sql/create_table.sql` 中的数据库语句，自动创建库表
+### 流程二
 
-3）启动项目，访问 `http://localhost:8101/api/doc.html` 即可打开接口文档，不需要写前端就能在线调试接口了~
+#### 需求: 
 
-![](doc/swagger.png)
+1. 开发图表管理
+2. 优化
 
-### Redis 分布式登录
+#### 开发
 
-1）修改 `application.yml` 的 Redis 配置为你自己的：
+1. 给需要调用的AI接口设置预设(为了达到回答精准)
 
-```yml
-spring:
-  redis:
-    database: 1
-    host: localhost
-    port: 6379
-    timeout: 5000
-    password: 123456
-```
+2. 调用AI调用第三方接口(这里使用别人写好的AI和SDK)
 
-2）修改 `application.yml` 中的 session 存储方式：
+   ```xml
+   <!-- https://mvnrepository.com/artifact/com.yucongming/yucongming-java-sdk -->
+   <dependency>
+       <groupId>com.yucongming</groupId>
+       <artifactId>yucongming-java-sdk</artifactId>
+       <version>0.0.3</version>
+   </dependency>
+   ```
 
-```yml
-spring:
-  session:
-    store-type: redis
-```
+3. 实现图表管理接口将AI传递来的数据写入数据库中
 
-3）移除 `MainApplication` 类开头 `@SpringBootApplication` 注解内的 exclude 参数：
+4. 将AI返回的结果写入的一个新的VO里面 返回给前端
 
-修改前：
+5. 测试
 
-```java
-@SpringBootApplication(exclude = {RedisAutoConfiguration.class})
-```
+6. 从安全、数据存储、限流方便考虑优化系统
 
-修改后：
+   1. 安全方面需要考虑文件的校验
+      - 文件大小
+      - 文件后缀
+      - 内容(......)
+      - tip: 一般文件100M时考虑分片
+   2. 数据存储将表中的原始数据存入到另一张表中(这里能否使用另一个数据库 比如MangoDB 文档型数据库)这里分表是为了防止原始数据时过大对其他数据读取造成影响
+      分出来的表利用chart_chart Id来存储方便区分
 
+#### 限流
 
-```java
-@SpringBootApplication
-```
+##### 介绍
 
-### Elasticsearch 搜索引擎
+限流是为了控制用户的调用次数，避免超支 这里列出两个方法
 
-1）修改 `application.yml` 的 Elasticsearch 配置为你自己的：
+- 控制用户总调用次数
+- 为了避免用户在一定时间内疯狂使用所以对接口做限流
 
-```yml
-spring:
-  elasticsearch:
-    uris: http://localhost:9200
-    username: root
-    password: 123456
-```
+##### 限流算法
 
-2）复制 `sql/post_es_mapping.json` 文件中的内容，通过调用 Elasticsearch 的接口或者 Kibana Dev Tools 来创建索引（相当于数据库建表）
+- 固定窗口限流
+- 滑动窗口限流
+- **漏桶限流**
+- **令牌桶限流**
 
-```
-PUT post_v1
-{
- 参数见 sql/post_es_mapping.json 文件
-}
-```
+##### 限流粒度
 
-这步不会操作的话需要补充下 Elasticsearch 的知识，或者自行百度一下~
+- 针对某个方法限流，即单位时间内最多允许同时 xx个操作使用这个方法
+- 针对某个用户限流，比如单个用户单位时间内最多执行 XX 次操作
+- 针对某个用户 x方法限流，比如单个用户单位时间内最多执行 XX 次这个方法
 
-3）开启同步任务，将数据库的帖子同步到 Elasticsearch
+##### 本地限流
 
-找到 job 目录下的 `FullSyncPostToEs` 和 `IncSyncPostToEs` 文件，取消掉 `@Component` 注解的注释，再次执行程序即可触发同步：
+每个服务器单独限流 一般用在单体项目中
 
-```java
-// todo 取消注释开启任务
-//@Component
-```
+第三发库: Guava RateLimiter
 
-### 业务代码生成器
+##### 分布式限流
 
-支持自动生成 Service、Controller、数据模型代码，配合 MyBatisX 插件，可以快速开发增删改查等实用基础功能。
+在多机部署时建议使用 利用Redisson内置的库 [Doc](https://github.com/redisson/redisson)
 
-找到 `generate.CodeGenerator` 类，修改生成参数和生成路径，并且支持注释掉不需要的生成逻辑，然后运行即可。
+把用户的使用频率等数据放到一个集中的存储进行统计; 比如 Redis，这样无论用户的请求落到了哪台服务器，都以集中存储中的数据为准。
 
-```
-// 指定生成参数
-String packageName = "com.project.springbootinit";
-String dataName = "用户评论";
-String dataKey = "userComment";
-String upperDataKey = "UserComment";
-```
-
-生成代码后，可以移动到实际项目中，并且按照 `// todo` 注释的提示来针对自己的业务需求进行修改。
+在网关集中进行限流和统计(比如 Sentinel、Spring Cloud Gateway)
