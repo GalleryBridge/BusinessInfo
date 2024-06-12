@@ -1,7 +1,6 @@
 package com.project.springbootinit.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.project.springbootinit.config.WxOpenConfig;
 import com.project.springbootinit.model.dto.user.UserQueryRequest;
 import com.project.springbootinit.model.dto.user.UserRegisterRequest;
 import com.project.springbootinit.model.dto.user.UserUpdateMyRequest;
@@ -51,8 +50,6 @@ public class UserController {
     @Resource
     private UserService userService;
 
-    @Resource
-    private WxOpenConfig wxOpenConfig;
 
     // region 登录相关
 

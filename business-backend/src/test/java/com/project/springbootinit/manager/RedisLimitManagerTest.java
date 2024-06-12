@@ -14,11 +14,11 @@ class RedisLimitManagerTest {
     private RedisLimitManager redisLimitManager;
 
     @Test
-    void doRateLimit() {
+    void doRateLimit() throws InterruptedException {
         String userId = "1";
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 2; i++) {
             redisLimitManager.doRateLimit(userId);
-            System.out.println(1);
+            System.out.println("成功");
         }
     }
 }

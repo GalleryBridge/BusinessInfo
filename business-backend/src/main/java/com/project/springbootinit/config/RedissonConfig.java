@@ -28,8 +28,7 @@ public class RedissonConfig {
         Config config = new Config();
         config.useSingleServer()
                 .setDatabase(database) //  这里使用 2库来实现限流
-                .setAddress("redis://" + host + ":" + port)
-                .setPassword(password);
+                .setAddress("redis://" + host + ":" + port);
         return Redisson.create(config);
     }
 
