@@ -16,6 +16,7 @@ import com.project.springbootinit.constant.UserConstant;
 import com.project.springbootinit.exception.BusinessException;
 import com.project.springbootinit.exception.ThrowUtils;
 import com.project.springbootinit.manager.AiManager;
+import com.project.springbootinit.manager.RedisLimitManager;
 import com.project.springbootinit.model.dto.chart.*;
 import com.project.springbootinit.model.entity.Chart;
 import com.project.springbootinit.model.entity.User;
@@ -50,6 +51,9 @@ public class ChartController {
 
     @Resource
     private AiManager aiManager;
+
+    @Resource
+    private RedisLimitManager redisLimitManager;
 
     /**
      * 增加
@@ -206,10 +210,13 @@ public class ChartController {
 
         //  校验文件后缀
         String suffix = FileUtil.getSuffix(filename);
-        final List<String> validFileSuffixList = Arrays.asList("png", "jpg", "svg", "webp", "jpeg");
+        final List<String> validFileSuffixList = Arrays.asList("png", "jpg", "svg", "webp", "jpeg", "xlsx");
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
 
         User loginUser = userService.getLoginUser(request);
+
+        //  限流判断
+        redisLimitManager.doRateLimit("genChartByAi_" + loginUser.getId());
         //  使用现有的AI模型
         long biModelId = 1651472468042432513L;
         StringBuilder userInput = new StringBuilder();
