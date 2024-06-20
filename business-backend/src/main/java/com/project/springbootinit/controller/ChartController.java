@@ -8,6 +8,8 @@ import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.project.springbootinit.annotation.AuthCheck;
+import com.project.springbootinit.bizmq.BiConsumer;
+import com.project.springbootinit.bizmq.BiProducer;
 import com.project.springbootinit.common.BaseResponse;
 import com.project.springbootinit.common.DeleteRequest;
 import com.project.springbootinit.common.ErrorCode;
@@ -61,6 +63,9 @@ public class ChartController {
 
     @Resource
     private ThreadPoolExecutor threadPoolExecutor;
+
+    @Resource
+    private BiProducer biProducer;
 
     /**
      * 增加
@@ -330,4 +335,65 @@ public class ChartController {
         queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortField.equals(CommonConstant.SORT_ORDER_ASC), sortField);
         return queryWrapper;
     }
+
+    @PostMapping("/gen/mq")
+    public BaseResponse<BiResponse> genChartByAiMq(@RequestPart("file") MultipartFile multipartFile,
+                                                 GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
+        String chartName = genChartByAIRequest.getChartName();
+        String goal = genChartByAIRequest.getGoal();
+        String chartType = genChartByAIRequest.getChartType();
+        //  校验
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
+        ThrowUtils.throwIf(StringUtils.isNotBlank(chartName) && chartName.length() > 100, ErrorCode.PARAMS_ERROR, "名称过长");
+
+        //  校验文件大小
+        long size = multipartFile.getSize();
+        String filename = multipartFile.getOriginalFilename();
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件过大, 限制1M");
+
+        //  校验文件后缀
+        String suffix = FileUtil.getSuffix(filename);
+        final List<String> validFileSuffixList = Arrays.asList("png", "jpg", "svg", "webp", "jpeg", "xlsx");
+        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
+
+        User loginUser = userService.getLoginUser(request);
+
+        //  限流判断
+        redisLimitManager.doRateLimit("genChartByAi_" + loginUser.getId());
+        //  使用现有的AI模型
+        long biModelId = 1651472468042432513L;
+        StringBuilder userInput = new StringBuilder();
+        //  给AI模型一个预设 构造用户输入
+        userInput.append("分析需求:").append("\n");
+
+        String userGoal = goal;
+        if (StringUtils.isNotBlank(userGoal))
+            userGoal = ".请使用" + chartType;
+        userInput.append(goal).append("\n");
+        userInput.append("原始数据:").append("\n");
+        String res = ExcelUtils.excelToCsv(multipartFile);
+        userInput.append(res).append("\n");
+
+        //  插入到数据库
+        Chart chart = new Chart();
+        chart.setChartName(chartName);
+        chart.setGoal(goal);
+        chart.setChartData(res);
+        chart.setChartType(chartType);
+        chart.setUserId(loginUser.getId());
+        chart.setStatus("wait");
+        boolean saveResult = chartService.save(chart);
+        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+
+        //  读取文件 进行处理 压缩信息
+        //  在这里改造成使用消息队列
+        Long newChartId = chart.getId();
+        biProducer.sendMessage(String.valueOf(newChartId));
+
+        BiResponse biResponse = new BiResponse();
+        biResponse.setChartId(newChartId);
+        return ResultUtils.success(biResponse);
+    }
+
 }
