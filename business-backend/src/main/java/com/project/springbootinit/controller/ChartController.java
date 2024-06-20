@@ -1,4 +1,5 @@
 package com.project.springbootinit.controller;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -29,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.threadpool.ThreadPool;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,6 +39,8 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @RestController
 @RequestMapping("/chart")
@@ -55,8 +59,12 @@ public class ChartController {
     @Resource
     private RedisLimitManager redisLimitManager;
 
+    @Resource
+    private ThreadPoolExecutor threadPoolExecutor;
+
     /**
      * 增加
+     *
      * @param ChartAddRequest
      * @param request
      * @return
@@ -79,6 +87,7 @@ public class ChartController {
 
     /**
      * 删除
+     *
      * @param deleteRequest
      * @param request
      * @return
@@ -103,6 +112,7 @@ public class ChartController {
 
     /**
      * 修改
+     *
      * @param chartUpdateRequest
      * @return
      */
@@ -126,6 +136,7 @@ public class ChartController {
 
     /**
      * 根据ID获取
+     *
      * @param id
      * @param request
      * @return
@@ -144,6 +155,7 @@ public class ChartController {
 
     /**
      * 分页获取列表 (管理员)
+     *
      * @param chartQueryRequest
      * @return
      */
@@ -159,6 +171,7 @@ public class ChartController {
 
     /**
      * 修改
+     *
      * @param chartEditRequest
      * @param request
      * @return
@@ -187,14 +200,15 @@ public class ChartController {
 
     /**
      * 智能生成
+     *
      * @param multipartFile
      * @param genChartByAIRequest
      * @param request
      * @return
      */
     @PostMapping("/gen")
-    public BaseResponse<BiResponse> genChartByAi(@RequestPart("file")MultipartFile multipartFile,
-                                             GenChartByAIRequest genChartByAIRequest, HttpServletRequest request){
+    public BaseResponse<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
+                                                 GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
         String chartName = genChartByAIRequest.getChartName();
         String goal = genChartByAIRequest.getGoal();
         String chartType = genChartByAIRequest.getChartType();
@@ -230,16 +244,6 @@ public class ChartController {
         userInput.append("原始数据:").append("\n");
         String res = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(res).append("\n");
-        //  压缩后的数据
-        //  拼接用户输入 传入doChat
-        String result = aiManager.doChat(userInput.toString(), 1709156902984093697L);
-        String[] splits = result.split("【【【【【");
-        System.out.println(splits.length);
-        if (splits.length < 3){
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "BI生成错误");
-        }
-        String genChart = splits[1].trim();
-        String genResult = splits[2].trim();
 
         //  插入到数据库
         Chart chart = new Chart();
@@ -247,26 +251,66 @@ public class ChartController {
         chart.setGoal(goal);
         chart.setChartData(res);
         chart.setChartType(chartType);
-        chart.setGenChart(genChart);
-        chart.setGenResult(genResult);
         chart.setUserId(loginUser.getId());
+        chart.setStatus("wait");
         boolean saveResult = chartService.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
 
-        BiResponse biResponse = new BiResponse();
-        biResponse.setGenChart(genChart);
-        biResponse.setGenResult(genResult);
-        biResponse.setChartId(chart.getId());
         //  读取文件 进行处理 压缩信息
+        CompletableFuture.runAsync(() -> {
+            //  修改任务状态为执行中，任务完成后修改程已完成，执行失败修改程失败
+            Chart updateChart = new Chart();
+            updateChart.setId(chart.getId());
+            updateChart.setStatus("running");
+            boolean b = chartService.updateById(updateChart);
+            if (!b) {
+                handleChartUpdateError(chart.getId(), "更新图表运行状态失败");
+                return;
+            }
+            //  压缩后的数据
+            //  拼接用户输入 传入doChat
+            String result = aiManager.doChat(userInput.toString(), 1709156902984093697L);
+            String[] splits = result.split("【【【【【");
+            System.out.println(splits.length);
+            if (splits.length < 3) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "BI生成错误");
+            }
+            String genChart = splits[1].trim();
+            String genResult = splits[2].trim();
+            Chart updateChartResult = new Chart();
+            updateChartResult.setId(chart.getId());
+            updateChartResult.setGenChart(genChart);
+            updateChartResult.setGenResult(genResult);
+            //  TODO 建议定义状态为枚举
+            updateChartResult.setStatus("succeed");
+            boolean updateResult = chartService.updateById(updateChart);
+            if (!updateResult) {
+                handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
+            }
+        }, threadPoolExecutor);
+        BiResponse biResponse = new BiResponse();
+        biResponse.setChartId(chart.getId());
         return ResultUtils.success(biResponse);
+    }
+
+    private void handleChartUpdateError(long chartId, String execMessage) {
+        Chart updateChartResult = new Chart();
+        updateChartResult.setId(chartId);
+        updateChartResult.setStatus("failed");
+        updateChartResult.setExecMessage(execMessage);
+        boolean updateResult = chartService.updateById(updateChartResult);
+        if (!updateResult)
+            log.error("更新图表失败状态错误", chartId + "," + execMessage);
+
     }
 
     /**
      * 根据条件查询 可选
+     *
      * @param chartQueryRequest
      * @return
      */
-    private QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest){
+    private QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest) {
         QueryWrapper<Chart> queryWrapper = new QueryWrapper<>();
         if (chartQueryRequest != null)
             return queryWrapper;

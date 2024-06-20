@@ -49,6 +49,15 @@ public class Chart  implements Serializable {
     private String genResult;
 
     /**
+     * 任务状态
+     */
+    private String status;
+
+    /**
+     * 执行信息
+     */
+    private String execMessage;
+    /**
      * 用户ID
      */
     private Long userId;
